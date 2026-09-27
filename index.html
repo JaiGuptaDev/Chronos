@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronos - Study Session Tracker</title>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        crimson: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            200: '#fecdd3',
+                            300: '#fda4af',
+                            400: '#fb7185',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#dc143c', /* Primary Crimson */
+                            800: '#9f1239',
+                            900: '#881337',
+                            glow: '#ff1e42',
+                        },
+                        dark: {
+                            bg: '#0d0d0f',
+                            card: '#16161a',
+                            border: '#24242c',
+                            hover: '#1e1e24',
+                            muted: '#8e8ea0'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS Styles -->
+    <style>
+        body {
+            background-color: #0d0d0f;
+            color: #f3f4f6;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d0d0f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #24242c;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #dc143c;
+        }
+
+        .crimson-glow {
+            box-shadow: 0 0 25px rgba(220, 20, 60, 0.25);
+        }
+        
+        .crimson-glow-sm {
+            box-shadow: 0 0 12px rgba(220, 20, 60, 0.2);
+        }
+
+        .crimson-text-glow {
+            text-shadow: 0 0 12px rgba(255, 30, 66, 0.5);
+        }
+
+        .pulse-crimson {
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                box-shadow: 0 0 0 0px rgba(220, 20, 60, 0.6);
+            }
+            70% {
+                box-shadow: 0 0 0 15px rgba(220, 20, 60, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0px rgba(220, 20, 60, 0);
+            }
+        }
+
+        .heatmap-cell {
+            transition: all 0.2s ease;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.15);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-dark-bg text-gray-100 antialiased selection:bg-crimson-700 selection:text-white">
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-40 w-full border-b border-dark-border bg-dark-bg/90 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('tracker')">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-crimson-600 to-crimson-800 flex items-center justify-center crimson-glow-sm">
+                    <i data-lucide="timer" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <span class="text-2xl font-extrabold tracking-tight text-white font-mono">CHRONOS</span>
+                </div>
+            </div>
+
+            <!-- Main Navigation Tabs -->
+            <nav class="flex items-center space-x-1 sm:space-x-2 bg-dark-card p-1 rounded-xl border border-dark-border">
+                <button id="nav-tracker" onclick="switchTab('tracker')" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-crimson-700 text-white crimson-glow-sm">
+                    <i data-lucide="play-circle" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Tracker</span>
+                </button>
+                <button id="nav-history" onclick="switchTab('history')" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-white hover:bg-dark-hover transition-all duration-200">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">History</span>
+                </button>
+                <button id="nav-analytics" onclick="switchTab('analytics')" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-white hover:bg-dark-hover transition-all duration-200">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Analytics</span>
+                </button>
+                <button id="nav-settings" onclick="switchTab('settings')" class="nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-white hover:bg-dark-hover transition-all duration-200">
+                    <i data-lucide="database" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Data & Settings</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Sample Data Alert Banner -->
+    <div id="sample-data-banner" class="bg-crimson-950/80 border-b border-crimson-800/60 px-4 py-2 text-xs font-medium text-crimson-200 flex items-center justify-between hidden">
+        <div class="flex items-center space-x-2 max-w-7xl mx-auto w-full">
+            <i data-lucide="sparkles" class="w-4 h-4 text-crimson-400 shrink-0"></i>
+            <span>Sample study sessions loaded for quick preview. You can export, import, or clear this data anytime in <strong>Data & Settings</strong>.</span>
+        </div>
+        <button onclick="dismissSampleBanner()" class="text-crimson-400 hover:text-white ml-2">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ==================== TRACKER SCREEN ==================== -->
+        <section id="screen-tracker" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Main Stopwatch Panel -->
+                <div class="lg:col-span-7 bg-dark-card rounded-2xl border border-dark-border p-6 sm:p-8 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-crimson-700/5 rounded-full blur-3xl pointer-events-none"></div>
+                    
+                    <!-- Top Controls Header -->
+                    <div class="w-full flex justify-between items-center mb-6">
+                        <div class="flex items-center space-x-2">
+                            <span id="timer-status-dot" class="w-3 h-3 rounded-full bg-gray-500"></span>
+                            <span id="timer-status-text" class="text-xs font-mono tracking-wider text-gray-400 uppercase">Ready</span>
+                        </div>
+                        <button onclick="openManualEntryModal()" class="text-xs font-semibold text-crimson-400 hover:text-crimson-300 flex items-center space-x-1 bg-crimson-950/40 hover:bg-crimson-900/40 px-3 py-1.5 rounded-lg border border-crimson-800/40 transition">
+                            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                            <span>Manual Entry</span>
+                        </button>
+                    </div>
+
+                    <!-- Digital Display -->
+                    <div class="my-4 sm:my-8 text-center">
+                        <div id="stopwatch-display" class="font-mono text-5xl sm:text-7xl font-extrabold tracking-tight text-white crimson-text-glow">
+                            00:00:00
+                        </div>
+                        <div id="stopwatch-ms" class="font-mono text-sm sm:text-base text-crimson-400 mt-1 font-semibold tracking-widest">
+                            .00
+                        </div>
+                    </div>
+
+                    <!-- Subject Tag & Topic Input -->
+                    <div class="w-full max-w-md space-y-4 mb-8">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Select Subject <span class="text-crimson-500">*</span></label>
+                            <div class="flex items-center space-x-2">
+                                <select id="tracker-subject-select" class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-crimson-600 transition">
+                                    <!-- Options injected dynamically -->
+                                </select>
+                                <button onclick="openAddSubjectModal()" title="Add Custom Subject" class="p-2.5 bg-dark-bg border border-dark-border hover:border-crimson-600/60 rounded-xl text-gray-300 hover:text-white transition">
+                                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Session Topic / Notes <span class="text-gray-500 font-normal">(Optional)</span></label>
+                            <input type="text" id="tracker-notes-input" placeholder="e.g. Organic Chemistry Ch 3 or Integration Ex 7.2" class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-crimson-600 transition">
+                        </div>
+                    </div>
+
+                    <!-- Action Controls -->
+                    <div class="flex items-center space-x-3 sm:space-x-4 w-full max-w-md">
+                        <button id="btn-start-pause" onclick="toggleTimer()" class="flex-1 py-3.5 px-6 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center space-x-2 bg-crimson-600 hover:bg-crimson-500 text-white crimson-glow transition-all active:scale-95">
+                            <i data-lucide="play" id="icon-start-pause" class="w-5 h-5"></i>
+                            <span id="text-start-pause">START STUDYING</span>
+                        </button>
+                        
+                        <button id="btn-reset" onclick="resetTimer()" class="py-3.5 px-4 rounded-xl font-semibold text-sm bg-dark-bg border border-dark-border hover:bg-dark-hover text-gray-300 transition active:scale-95">
+                            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                        </button>
+
+                        <button id="btn-save" onclick="saveCurrentSession()" class="flex-1 py-3.5 px-6 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 opacity-50 cursor-not-allowed" disabled>
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span>SAVE SESSION</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Today's Session Log Sidebar -->
+                <div class="lg:col-span-5 bg-dark-card rounded-2xl border border-dark-border p-6 flex flex-col h-[520px]">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-dark-border">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="clock" class="w-5 h-5 text-crimson-500"></i>
+                            <h2 class="font-bold text-lg text-white">Today's Sessions</h2>
+                        </div>
+                        <div id="today-total-badge" class="font-mono text-xs font-semibold px-2.5 py-1 rounded-lg bg-crimson-950 text-crimson-300 border border-crimson-800/40">
+                            Total: 0h 0m
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Log List -->
+                    <div id="today-sessions-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                        <!-- Dynamic items -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== HISTORY SCREEN ==================== -->
+        <section id="screen-history" class="space-y-6 hidden">
+            <!-- Date Navigator Bar -->
+            <div class="bg-dark-card rounded-2xl border border-dark-border p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <button onclick="changeHistoryDate(-1)" class="p-2.5 bg-dark-bg hover:bg-dark-hover border border-dark-border rounded-xl text-gray-300 transition">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <input type="date" id="history-date-picker" onchange="loadHistoryForSelectedDate()" class="bg-dark-bg border border-dark-border rounded-xl px-4 py-2 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                    <button onclick="changeHistoryDate(1)" class="p-2.5 bg-dark-bg hover:bg-dark-hover border border-dark-border rounded-xl text-gray-300 transition">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="setHistoryDateToToday()" class="px-3 py-2 bg-crimson-950 hover:bg-crimson-900 border border-crimson-800/50 text-crimson-300 text-xs font-semibold rounded-xl transition">
+                        Today
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-6 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-dark-border pt-3 sm:pt-0">
+                    <div>
+                        <span class="text-xs text-gray-400 block">Total Study Time</span>
+                        <span id="history-day-total" class="font-mono text-xl font-extrabold text-crimson-400">0h 0m</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 block">Total Sessions</span>
+                        <span id="history-day-count" class="font-mono text-xl font-extrabold text-white">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sessions List -->
+            <div class="bg-dark-card rounded-2xl border border-dark-border p-6 min-h-[400px]">
+                <h3 class="font-bold text-lg text-white mb-4 flex items-center space-x-2">
+                    <i data-lucide="list-checks" class="w-5 h-5 text-crimson-500"></i>
+                    <span id="history-date-heading">Logged Study Sessions</span>
+                </h3>
+
+                <div id="history-sessions-container" class="space-y-3">
+                    <!-- Injected dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ANALYTICS SCREEN ==================== -->
+        <section id="screen-analytics" class="space-y-6 hidden">
+            <!-- Secondary Key Performance Indicator Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Current Streak -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-4 flex flex-col justify-between">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold text-gray-400">CURRENT STREAK</span>
+                        <i data-lucide="flame" class="w-4 h-4 text-crimson-500"></i>
+                    </div>
+                    <div class="mt-3">
+                        <span id="metric-current-streak" class="text-2xl sm:text-3xl font-extrabold text-white font-mono">0</span>
+                        <span class="text-xs text-gray-400 ml-1">Days</span>
+                    </div>
+                    <span id="metric-longest-streak" class="text-[11px] text-gray-500 mt-1">Best: 0 Days</span>
+                </div>
+
+                <!-- Daily Average -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-4 flex flex-col justify-between">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold text-gray-400">DAILY AVERAGE</span>
+                        <i data-lucide="trending-up" class="w-4 h-4 text-crimson-500"></i>
+                    </div>
+                    <div class="mt-3">
+                        <span id="metric-daily-avg" class="text-2xl sm:text-3xl font-extrabold text-white font-mono">0.0</span>
+                        <span class="text-xs text-gray-400 ml-1">Hrs/Day</span>
+                    </div>
+                    <span class="text-[11px] text-gray-500 mt-1">Past 30 active days</span>
+                </div>
+
+                <!-- Total Hours All-Time -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-4 flex flex-col justify-between">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold text-gray-400">ALL-TIME HOURS</span>
+                        <i data-lucide="award" class="w-4 h-4 text-crimson-500"></i>
+                    </div>
+                    <div class="mt-3">
+                        <span id="metric-total-hours" class="text-2xl sm:text-3xl font-extrabold text-crimson-400 font-mono">0</span>
+                        <span class="text-xs text-gray-400 ml-1">Hours</span>
+                    </div>
+                    <span id="metric-total-sessions" class="text-[11px] text-gray-500 mt-1">Across 0 sessions</span>
+                </div>
+
+                <!-- Peak Study Window -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-4 flex flex-col justify-between">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold text-gray-400">PEAK TIME WINDOW</span>
+                        <i data-lucide="sun-medium" class="w-4 h-4 text-crimson-500"></i>
+                    </div>
+                    <div class="mt-3">
+                        <span id="metric-peak-window" class="text-lg sm:text-xl font-bold text-white tracking-tight">Morning</span>
+                    </div>
+                    <span id="metric-peak-sub" class="text-[11px] text-gray-500 mt-1">Most productive zone</span>
+                </div>
+            </div>
+
+            <!-- Heatmap Section -->
+            <div class="bg-dark-card rounded-2xl border border-dark-border p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="grid" class="w-4 h-4 text-crimson-500"></i>
+                        <h3 class="font-bold text-sm text-white" id="heatmap-title">30-Day Study Consistency Grid</h3>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3 self-end sm:self-auto">
+                        <!-- Heatmap Pagination Controls -->
+                        <div class="flex items-center space-x-1 bg-dark-bg p-1 rounded-lg border border-dark-border text-xs">
+                            <button onclick="navigateHeatmap(1)" title="Previous 30 Days" class="p-1 hover:text-white text-gray-400 rounded transition">
+                                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="resetHeatmapToCurrent()" title="Current 30 Days" class="px-2 py-0.5 text-[11px] font-semibold text-gray-300 hover:text-white transition">
+                                Recent
+                            </button>
+                            <button onclick="navigateHeatmap(-1)" id="btn-heatmap-next" title="Next 30 Days" class="p-1 hover:text-white text-gray-400 rounded transition disabled:opacity-30 disabled:cursor-not-allowed">
+                                <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center space-x-2 text-[11px] text-gray-400">
+                            <span>Less</span>
+                            <div class="w-3 h-3 rounded bg-dark-hover"></div>
+                            <div class="w-3 h-3 rounded bg-crimson-950"></div>
+                            <div class="w-3 h-3 rounded bg-crimson-800"></div>
+                            <div class="w-3 h-3 rounded bg-crimson-600"></div>
+                            <div class="w-3 h-3 rounded bg-crimson-500"></div>
+                            <span>More</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Heatmap Container -->
+                <div id="heatmap-grid" class="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-15 gap-2 pt-2">
+                    <!-- Cells injected dynamically -->
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Daily Study Trend Chart -->
+                <div class="lg:col-span-7 bg-dark-card border border-dark-border rounded-2xl p-5">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+                        <div class="flex items-center space-x-2">
+                            <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+                                <i data-lucide="line-chart" class="w-4 h-4 text-crimson-500"></i>
+                                <span>Daily Study Trend</span>
+                            </h3>
+                            <!-- Trend Pagination Controls -->
+                            <div class="flex items-center space-x-1 bg-dark-bg p-1 rounded-lg border border-dark-border text-xs ml-2">
+                                <button onclick="navigateTrendOffset(1)" title="Previous Period" class="p-1 hover:text-white text-gray-400 rounded transition">
+                                    <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="resetTrendOffset()" title="Jump to Present" class="px-1.5 py-0.5 text-[10px] font-semibold text-gray-400 hover:text-white transition">
+                                    Now
+                                </button>
+                                <button onclick="navigateTrendOffset(-1)" id="btn-trend-next" title="Next Period" class="p-1 hover:text-white text-gray-400 rounded transition disabled:opacity-30 disabled:cursor-not-allowed">
+                                    <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex bg-dark-bg p-1 rounded-lg border border-dark-border text-xs flex-wrap gap-1">
+                            <button onclick="updateTrendDays(7)" id="btn-trend-7" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">7D</button>
+                            <button onclick="updateTrendDays(14)" id="btn-trend-14" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">14D</button>
+                            <button onclick="updateTrendDays(30)" id="btn-trend-30" class="px-2.5 py-1 rounded-md bg-crimson-700 text-white font-semibold">30D</button>
+                            <button onclick="updateTrendDays('all')" id="btn-trend-all" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">All</button>
+                        </div>
+                    </div>
+                    <div class="h-64 relative">
+                        <canvas id="chart-daily-trend"></canvas>
+                    </div>
+                </div>
+
+                <!-- Subject Time Distribution Donut -->
+                <div class="lg:col-span-5 bg-dark-card border border-dark-border rounded-2xl p-5">
+                    <h3 class="font-bold text-sm text-white mb-4 flex items-center space-x-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-crimson-500"></i>
+                        <span>Subject Breakdown</span>
+                    </h3>
+                    <div class="h-64 relative flex items-center justify-center">
+                        <canvas id="chart-subject-donut"></canvas>
+                    </div>
+                </div>
+
+                <!-- Weekly Aggregate Chart -->
+                <div class="lg:col-span-12 bg-dark-card border border-dark-border rounded-2xl p-5">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+                        <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 text-crimson-500"></i>
+                            <span>Cumulative Weekly Comparison</span>
+                        </h3>
+                        <div class="flex bg-dark-bg p-1 rounded-lg border border-dark-border text-xs">
+                            <button onclick="updateWeeklySpan(4)" id="btn-weekly-4" class="px-2.5 py-1 rounded-md bg-crimson-700 text-white font-semibold">4 Weeks</button>
+                            <button onclick="updateWeeklySpan(8)" id="btn-weekly-8" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">8 Weeks</button>
+                            <button onclick="updateWeeklySpan(12)" id="btn-weekly-12" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">12 Weeks</button>
+                            <button onclick="updateWeeklySpan(26)" id="btn-weekly-26" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">6 Months</button>
+                            <button onclick="updateWeeklySpan(52)" id="btn-weekly-52" class="px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white">1 Year</button>
+                        </div>
+                    </div>
+                    <div class="h-64 relative">
+                        <canvas id="chart-weekly-trend"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== DATA & SETTINGS SCREEN ==================== -->
+        <section id="screen-settings" class="space-y-6 hidden">
+            <!-- Header Banner -->
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                    <i data-lucide="database" class="w-6 h-6 text-crimson-500"></i>
+                    <span>Database Management & Backups</span>
+                </h2>
+                <p class="text-sm text-gray-400 mt-1">
+                    Chronos uses a client-side IndexedDB database store (<span class="font-mono text-crimson-400">ChronosStudyDB</span>). Manage your backups, export reports, or reset state below.
+                </p>
+            </div>
+
+            <!-- Database Diagnostic Info Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-5">
+                    <span class="text-xs font-semibold text-gray-400 block mb-1">TOTAL SESSIONS</span>
+                    <span id="stat-total-sessions" class="text-2xl font-extrabold text-white font-mono">0</span>
+                    <span class="text-xs text-gray-500 block mt-1">Logged study records</span>
+                </div>
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-5">
+                    <span class="text-xs font-semibold text-gray-400 block mb-1">SUBJECTS REGISTERED</span>
+                    <span id="stat-total-subjects" class="text-2xl font-extrabold text-crimson-400 font-mono">0</span>
+                    <span class="text-xs text-gray-500 block mt-1">Standard & custom tags</span>
+                </div>
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-5">
+                    <span class="text-xs font-semibold text-gray-400 block mb-1">STORAGE ESTIMATE</span>
+                    <span id="stat-storage-size" class="text-2xl font-extrabold text-white font-mono">0 KB</span>
+                    <span class="text-xs text-gray-500 block mt-1">Estimated IndexedDB footprint</span>
+                </div>
+            </div>
+
+            <!-- Actions Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Export Backup Card -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center space-x-3 mb-3">
+                            <div class="p-2.5 rounded-xl bg-emerald-950 border border-emerald-800 text-emerald-400">
+                                <i data-lucide="download" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-white text-base">Export Backup JSON</h3>
+                                <span class="text-xs text-gray-400">Save full study database to local file</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed mb-6">
+                            Export all study session timestamps, topic notes, and subject configurations into a clean, formatted JSON file for offline safekeeping.
+                        </p>
+                    </div>
+
+                    <button onclick="exportDatabaseJSON()" class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm text-white flex items-center justify-center space-x-2 transition">
+                        <i data-lucide="file-output" class="w-4 h-4"></i>
+                        <span>Download JSON Backup</span>
+                    </button>
+                </div>
+
+                <!-- Import Data Card -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center space-x-3 mb-3">
+                            <div class="p-2.5 rounded-xl bg-blue-950 border border-blue-800 text-blue-400">
+                                <i data-lucide="upload" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-white text-base">Import Backup File</h3>
+                                <span class="text-xs text-gray-400">Restore or merge data from a JSON file</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed mb-4">
+                            Select a previously exported Chronos JSON backup file. You will be prompted to either merge with existing entries or replace them.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="handleImportFileSelected(event)">
+                        <button onclick="document.getElementById('import-file-input').click()" class="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white flex items-center justify-center space-x-2 transition">
+                            <i data-lucide="file-input" class="w-4 h-4"></i>
+                            <span>Select JSON Backup File</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone Card -->
+            <div class="bg-dark-card border border-red-950 rounded-2xl p-6">
+                <div class="flex items-center space-x-3 mb-3">
+                    <div class="p-2.5 rounded-xl bg-crimson-950 border border-crimson-800 text-crimson-400">
+                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-base">Danger Zone</h3>
+                        <span class="text-xs text-gray-400">Irreversible database actions</span>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 leading-relaxed mb-4">
+                    Permanently wipe all logged study sessions and custom subjects from IndexedDB. This action cannot be undone unless you have an exported backup.
+                </p>
+                <button onclick="openClearDatabaseModal()" class="py-2.5 px-5 rounded-xl bg-crimson-900/60 hover:bg-crimson-700 border border-crimson-700 font-bold text-xs text-white flex items-center space-x-2 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Clear All Data & Reset Database</span>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== MODALS ==================== -->
+    
+    <!-- Clear DB Confirmation Modal -->
+    <div id="modal-clear-db" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-dark-card border border-crimson-800/80 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+            <button onclick="closeClearDatabaseModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center space-x-3 mb-4 text-crimson-500">
+                <i data-lucide="alert-octagon" class="w-7 h-7"></i>
+                <h3 class="font-extrabold text-xl text-white">Reset Database?</h3>
+            </div>
+
+            <p class="text-xs text-gray-300 leading-relaxed mb-4">
+                This will permanently delete <strong class="text-white" id="confirm-delete-count">all</strong> study logs and custom subjects. Type <span class="font-mono bg-dark-bg px-1.5 py-0.5 rounded text-crimson-400 border border-dark-border">RESET</span> below to confirm.
+            </p>
+
+            <input type="text" id="clear-confirm-input" placeholder="Type RESET" class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600 mb-6">
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeClearDatabaseModal()" class="px-4 py-2.5 rounded-xl border border-dark-border bg-dark-bg hover:bg-dark-hover text-sm font-semibold text-gray-300">Cancel</button>
+                <button type="button" onclick="confirmResetDatabase()" class="px-5 py-2.5 rounded-xl bg-crimson-600 hover:bg-crimson-500 text-sm font-bold text-white crimson-glow-sm">Wipe Everything</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Entry Modal -->
+    <div id="modal-manual-entry" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-md p-6 relative">
+            <button onclick="closeManualEntryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <h3 class="font-bold text-lg text-white mb-4 flex items-center space-x-2">
+                <i data-lucide="plus-circle" class="w-5 h-5 text-crimson-500"></i>
+                <span>Log Manual Study Session</span>
+            </h3>
+
+            <form id="form-manual-entry" onsubmit="handleManualEntrySubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Date</label>
+                    <input type="date" id="manual-date" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Subject</label>
+                    <select id="manual-subject-select" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-crimson-600">
+                        <!-- Injected -->
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Duration (Hours)</label>
+                        <input type="number" id="manual-hours" min="0" max="23" value="1" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Duration (Minutes)</label>
+                        <input type="number" id="manual-minutes" min="0" max="59" value="0" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Start Time (Optional)</label>
+                    <input type="time" id="manual-start-time" class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Topic / Notes (Optional)</label>
+                    <input type="text" id="manual-notes" placeholder="e.g. Revision or Mock Test Analysis" class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-crimson-600">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closeManualEntryModal()" class="px-4 py-2.5 rounded-xl border border-dark-border bg-dark-bg hover:bg-dark-hover text-sm font-semibold text-gray-300">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-crimson-600 hover:bg-crimson-500 text-sm font-bold text-white crimson-glow-sm">Save Log</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Session Modal -->
+    <div id="modal-edit-session" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-md p-6 relative">
+            <button onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <h3 class="font-bold text-lg text-white mb-4 flex items-center space-x-2">
+                <i data-lucide="edit-3" class="w-5 h-5 text-crimson-500"></i>
+                <span>Edit Study Session</span>
+            </h3>
+
+            <form id="form-edit-session" onsubmit="handleEditSubmit(event)" class="space-y-4">
+                <input type="hidden" id="edit-session-id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Subject</label>
+                    <select id="edit-subject-select" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-crimson-600">
+                        <!-- Injected -->
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Hours</label>
+                        <input type="number" id="edit-hours" min="0" max="23" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Minutes</label>
+                        <input type="number" id="edit-minutes" min="0" max="59" required class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-crimson-600">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Topic / Notes</label>
+                    <input type="text" id="edit-notes" placeholder="Session details..." class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-crimson-600">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl border border-dark-border bg-dark-bg hover:bg-dark-hover text-sm font-semibold text-gray-300">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-crimson-600 hover:bg-crimson-500 text-sm font-bold text-white crimson-glow-sm">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Subject Modal -->
+    <div id="modal-add-subject" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-sm p-6 relative">
+            <button onclick="closeAddSubjectModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <h3 class="font-bold text-lg text-white mb-4">Add Custom Subject</h3>
+
+            <form id="form-add-subject" onsubmit="handleAddSubjectSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Subject Name</label>
+                    <input type="text" id="new-subject-name" required placeholder="e.g. Physical Education" class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-crimson-600">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Badge Color</label>
+                    <input type="color" id="new-subject-color" value="#dc143c" class="w-full h-10 bg-dark-bg border border-dark-border rounded-xl p-1 cursor-pointer">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closeAddSubjectModal()" class="px-4 py-2 rounded-xl border border-dark-border text-sm text-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-crimson-600 text-sm font-bold text-white">Add Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Notification Toast -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- Application JavaScript Engine -->
+    <script>
+        /* ==================== 1. CONSTANTS & DEFAULT DATA ==================== */
+        const DEFAULT_SUBJECTS = [
+            { id: 'sub_physics', name: 'Physics', color: '#3b82f6' },
+            { id: 'sub_chemistry', name: 'Chemistry', color: '#10b981' },
+            { id: 'sub_maths', name: 'Mathematics', color: '#dc143c' },
+            { id: 'sub_biology', name: 'Biology', color: '#8b5cf6' },
+            { id: 'sub_english', name: 'English', color: '#f59e0b' },
+            { id: 'sub_cs', name: 'Computer Science', color: '#06b6d4' }
+        ];
+
+        /* ==================== 2. DATABASE SYSTEM (IndexedDB) ==================== */
+        let db = null;
+
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open("ChronosStudyDB", 1);
+
+                request.onupgradeneeded = (event) => {
+                    const dbInstance = event.target.result;
+                    
+                    if (!dbInstance.objectStoreNames.contains("subjects")) {
+                        const subjectStore = dbInstance.createObjectStore("subjects", { keyPath: "id" });
+                        DEFAULT_SUBJECTS.forEach(sub => subjectStore.add(sub));
+                    }
+
+                    if (!dbInstance.objectStoreNames.contains("sessions")) {
+                        const sessionStore = dbInstance.createObjectStore("sessions", { keyPath: "id" });
+                        sessionStore.createIndex("date", "date", { unique: false });
+                        sessionStore.createIndex("subject_id", "subject_id", { unique: false });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    seedInitialDataIfEmpty().then(resolve);
+                };
+
+                request.onerror = (event) => {
+                    console.error("IndexedDB initialization failed:", event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        async function seedInitialDataIfEmpty() {
+            // Updated: Default empty state on initial launch (no dummy data generation)
+            return Promise.resolve();
+        }
+
+        function dismissSampleBanner() {
+            document.getElementById('sample-data-banner').classList.add('hidden');
+        }
+
+        function countStoreItems(storeName) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(storeName, "readonly");
+                const store = tx.objectStore(storeName);
+                const req = store.count();
+                req.onsuccess = () => resolve(req.result);
+            });
+        }
+
+        function getAllFromStore(storeName) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(storeName, "readonly");
+                const store = tx.objectStore(storeName);
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+            });
+        }
+
+        function addToStore(storeName, item) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, "readwrite");
+                const store = tx.objectStore(storeName);
+                const req = store.add(item);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function updateInStore(storeName, item) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, "readwrite");
+                const store = tx.objectStore(storeName);
+                const req = store.put(item);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function deleteFromStore(storeName, id) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(storeName, "readwrite");
+                const store = tx.objectStore(storeName);
+                const req = store.delete(id);
+                req.onsuccess = () => resolve(true);
+            });
+        }
+
+        function clearStore(storeName) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(storeName, "readwrite");
+                const store = tx.objectStore(storeName);
+                const req = store.clear();
+                req.onsuccess = () => resolve(true);
+            });
+        }
+
+        /* ==================== 3. APP STATE & GLOBAL VARS ==================== */
+        let subjectsList = [];
+        let activeTab = 'tracker';
+
+        // Stopwatch State
+        let timerInterval = null;
+        let timerStartTime = 0;
+        let timerElapsedTime = 0;
+        let isTimerRunning = false;
+
+        // History Date State
+        let historySelectedDate = formatDateISO(new Date());
+
+        // Analytics Config State
+        let trendDaysCount = 30; // 'all' or number
+        let trendOffsetPeriods = 0; // Pagination multiplier for daily trend
+        let heatmapOffsetBlocks = 0; // Pagination multiplier for 30-day heatmap block
+        let weeklySpanWeeks = 4; // Number of weeks to compare
+
+        // Chart Instances
+        let chartDailyTrend = null;
+        let chartSubjectDonut = null;
+        let chartWeeklyTrend = null;
+
+        /* ==================== 4. INITIALIZATION ==================== */
+        window.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            await initDatabase();
+            await loadSubjects();
+            
+            document.getElementById('manual-date').value = formatDateISO(new Date());
+            document.getElementById('history-date-picker').value = historySelectedDate;
+
+            renderTrackerTodaySessions();
+            
+            window.addEventListener('resize', () => {
+                if (activeTab === 'analytics') {
+                    renderAnalytics();
+                }
+            });
+        });
+
+        async function loadSubjects() {
+            subjectsList = await getAllFromStore("subjects");
+            populateSubjectSelects();
+        }
+
+        function populateSubjectSelects() {
+            const trackerSelect = document.getElementById('tracker-subject-select');
+            const manualSelect = document.getElementById('manual-subject-select');
+            const editSelect = document.getElementById('edit-subject-select');
+
+            const optionsHTML = subjectsList.map(sub => 
+                `<option value="${sub.id}">${sub.name}</option>`
+            ).join('');
+
+            trackerSelect.innerHTML = optionsHTML;
+            manualSelect.innerHTML = optionsHTML;
+            editSelect.innerHTML = optionsHTML;
+        }
+
+        /* ==================== 5. NAVIGATION LOGIC ==================== */
+        function switchTab(tabName) {
+            activeTab = tabName;
+
+            document.getElementById('screen-tracker').classList.add('hidden');
+            document.getElementById('screen-history').classList.add('hidden');
+            document.getElementById('screen-analytics').classList.add('hidden');
+            document.getElementById('screen-settings').classList.add('hidden');
+
+            const navs = ['tracker', 'history', 'analytics', 'settings'];
+            navs.forEach(t => {
+                const btn = document.getElementById(`nav-${t}`);
+                if (btn) btn.className = "nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-white hover:bg-dark-hover transition-all duration-200";
+            });
+
+            const activeBtn = document.getElementById(`nav-${tabName}`);
+            if (activeBtn) activeBtn.className = "nav-btn flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-crimson-700 text-white crimson-glow-sm";
+
+            document.getElementById(`screen-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'tracker') {
+                renderTrackerTodaySessions();
+            } else if (tabName === 'history') {
+                loadHistoryForSelectedDate();
+            } else if (tabName === 'analytics') {
+                renderAnalytics();
+            } else if (tabName === 'settings') {
+                renderSettingsStats();
+            }
+
+            lucide.createIcons();
+        }
+
+        /* ==================== 6. STOPWATCH LOGIC ==================== */
+        function toggleTimer() {
+            if (!isTimerRunning) {
+                startTimer();
+            } else {
+                pauseTimer();
+            }
+        }
+
+        function startTimer() {
+            isTimerRunning = true;
+            timerStartTime = Date.now() - timerElapsedTime;
+            
+            timerInterval = setInterval(updateStopwatchUI, 30);
+
+            document.getElementById('btn-start-pause').classList.remove('bg-crimson-600', 'hover:bg-crimson-500');
+            document.getElementById('btn-start-pause').classList.add('bg-amber-600', 'hover:bg-amber-500');
+            document.getElementById('icon-start-pause').setAttribute('data-lucide', 'pause');
+            document.getElementById('text-start-pause').textContent = "PAUSE";
+
+            document.getElementById('timer-status-dot').className = "w-3 h-3 rounded-full bg-crimson-500 pulse-crimson";
+            document.getElementById('timer-status-text').textContent = "STUDYING...";
+            document.getElementById('timer-status-text').className = "text-xs font-mono tracking-wider text-crimson-400 font-bold uppercase";
+
+            document.getElementById('btn-save').disabled = false;
+            document.getElementById('btn-save').classList.remove('opacity-50', 'cursor-not-allowed');
+
+            lucide.createIcons();
+        }
+
+        function pauseTimer() {
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+
+            document.getElementById('btn-start-pause').classList.remove('bg-amber-600', 'hover:bg-amber-500');
+            document.getElementById('btn-start-pause').classList.add('bg-crimson-600', 'hover:bg-crimson-500');
+            document.getElementById('icon-start-pause').setAttribute('data-lucide', 'play');
+            document.getElementById('text-start-pause').textContent = "RESUME";
+
+            document.getElementById('timer-status-dot').className = "w-3 h-3 rounded-full bg-amber-500";
+            document.getElementById('timer-status-text').textContent = "PAUSED";
+            document.getElementById('timer-status-text').className = "text-xs font-mono tracking-wider text-amber-400 uppercase";
+
+            lucide.createIcons();
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timerElapsedTime = 0;
+            updateStopwatchUI();
+
+            document.getElementById('text-start-pause').textContent = "START STUDYING";
+            document.getElementById('timer-status-dot').className = "w-3 h-3 rounded-full bg-gray-500";
+            document.getElementById('timer-status-text').textContent = "READY";
+            document.getElementById('timer-status-text').className = "text-xs font-mono tracking-wider text-gray-400 uppercase";
+
+            document.getElementById('btn-save').disabled = true;
+            document.getElementById('btn-save').classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        function updateStopwatchUI() {
+            if (isTimerRunning) {
+                timerElapsedTime = Date.now() - timerStartTime;
+            }
+
+            const totalSeconds = Math.floor(timerElapsedTime / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const ms = Math.floor((timerElapsedTime % 1000) / 10);
+
+            const hhStr = String(hours).padStart(2, '0');
+            const mmStr = String(minutes).padStart(2, '0');
+            const ssStr = String(seconds).padStart(2, '0');
+            const msStr = '.' + String(ms).padStart(2, '0');
+
+            document.getElementById('stopwatch-display').textContent = `${hhStr}:${mmStr}:${ssStr}`;
+            document.getElementById('stopwatch-ms').textContent = msStr;
+        }
+
+        async function saveCurrentSession() {
+            const totalSeconds = Math.floor(timerElapsedTime / 1000);
+            if (totalSeconds < 5) {
+                showToast("Session too short to save (less than 5s).", "error");
+                return;
+            }
+
+            const subjectId = document.getElementById('tracker-subject-select').value;
+            const notes = document.getElementById('tracker-notes-input').value.trim();
+            const now = new Date();
+            const dateStr = formatDateISO(now);
+            const startTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            const sessionObj = {
+                id: 'sess_' + Date.now(),
+                date: dateStr,
+                start_time: startTimeStr,
+                duration_seconds: totalSeconds,
+                subject_id: subjectId,
+                notes: notes,
+                created_at: now.toISOString()
+            };
+
+            await addToStore("sessions", sessionObj);
+            
+            showToast("Study session saved to Chronos DB!");
+            resetTimer();
+            document.getElementById('tracker-notes-input').value = "";
+            renderTrackerTodaySessions();
+        }
+
+        /* ==================== 7. LOG RENDERING ==================== */
+        async function renderTrackerTodaySessions() {
+            const todayStr = formatDateISO(new Date());
+            const allSessions = await getAllFromStore("sessions");
+            const todaySessions = allSessions.filter(s => s.date === todayStr);
+
+            todaySessions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            const container = document.getElementById('today-sessions-container');
+            const badge = document.getElementById('today-total-badge');
+
+            let totalSeconds = 0;
+            todaySessions.forEach(s => totalSeconds += s.duration_seconds);
+            badge.textContent = `Total: ${formatDurationHoursMins(totalSeconds)}`;
+
+            if (todaySessions.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500">
+                        <i data-lucide="coffee" class="w-10 h-10 mb-2 opacity-40"></i>
+                        <p class="text-sm font-medium">No sessions logged today yet.</p>
+                        <p class="text-xs text-gray-600 mt-1">Start the stopwatch above to log your progress!</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = todaySessions.map(sess => createSessionCardHTML(sess)).join('');
+            lucide.createIcons();
+        }
+
+        function createSessionCardHTML(sess) {
+            const subject = subjectsList.find(sub => sub.id === sess.subject_id) || { name: 'General', color: '#dc143c' };
+            const timeFormatted = formatDurationHoursMins(sess.duration_seconds);
+
+            return `
+                <div class="bg-dark-bg border border-dark-border rounded-xl p-3.5 flex items-center justify-between group hover:border-dark-hover transition">
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <div class="w-2.5 h-10 rounded-full shrink-0" style="background-color: ${subject.color}"></div>
+                        <div class="truncate">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold px-2 py-0.5 rounded" style="background-color: ${subject.color}20; color: ${subject.color}">
+                                    ${escapeHTML(subject.name)}
+                                </span>
+                                ${sess.start_time ? `<span class="text-[11px] text-gray-500 font-mono">${sess.start_time}</span>` : ''}
+                            </div>
+                            <p class="text-sm text-gray-200 font-medium truncate mt-1">
+                                ${sess.notes ? escapeHTML(sess.notes) : '<span class="italic text-gray-500 text-xs">No topic entered</span>'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 shrink-0 ml-2">
+                        <span class="font-mono text-sm font-bold text-white">${timeFormatted}</span>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="openEditModal('${sess.id}')" title="Edit Session" class="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-dark-card transition">
+                                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteSession('${sess.id}')" title="Delete Session" class="p-1.5 text-gray-400 hover:text-crimson-400 rounded-lg hover:bg-dark-card transition">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* ==================== 8. HISTORY SCREEN LOGIC ==================== */
+        async function loadHistoryForSelectedDate() {
+            const dateInput = document.getElementById('history-date-picker');
+            historySelectedDate = dateInput.value;
+
+            const allSessions = await getAllFromStore("sessions");
+            const daySessions = allSessions.filter(s => s.date === historySelectedDate);
+
+            daySessions.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+            let totalSecs = 0;
+            daySessions.forEach(s => totalSecs += s.duration_seconds);
+
+            document.getElementById('history-day-total').textContent = formatDurationHoursMins(totalSecs);
+            document.getElementById('history-day-count').textContent = daySessions.length;
+            
+            const formattedReadable = new Date(historySelectedDate + 'T00:00:00').toLocaleDateString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+            });
+            document.getElementById('history-date-heading').textContent = `Sessions for ${formattedReadable}`;
+
+            const container = document.getElementById('history-sessions-container');
+            if (daySessions.length === 0) {
+                container.innerHTML = `
+                    <div class="py-12 text-center text-gray-500">
+                        <i data-lucide="calendar-x" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                        <p class="text-sm">No study sessions recorded for this date.</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = daySessions.map(sess => createSessionCardHTML(sess)).join('');
+            }
+
+            lucide.createIcons();
+        }
+
+        function changeHistoryDate(offsetDays) {
+            const current = new Date(historySelectedDate + 'T00:00:00');
+            current.setDate(current.getDate() + offsetDays);
+            const newDateStr = formatDateISO(current);
+            document.getElementById('history-date-picker').value = newDateStr;
+            loadHistoryForSelectedDate();
+        }
+
+        function setHistoryDateToToday() {
+            const todayStr = formatDateISO(new Date());
+            document.getElementById('history-date-picker').value = todayStr;
+            loadHistoryForSelectedDate();
+        }
+
+        /* ==================== 9. EXPORT / IMPORT / DATABASE MANAGEMENT ==================== */
+        async function renderSettingsStats() {
+            const sessions = await getAllFromStore("sessions");
+            const subjects = await getAllFromStore("subjects");
+
+            document.getElementById('stat-total-sessions').textContent = sessions.length;
+            document.getElementById('stat-total-subjects').textContent = subjects.length;
+
+            // Estimate storage size
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                const kb = ((estimate.usage || 0) / 1024).toFixed(1);
+                document.getElementById('stat-storage-size').textContent = `${kb} KB`;
+            } else {
+                // Approximate fallback
+                const bytes = JSON.stringify(sessions).length + JSON.stringify(subjects).length;
+                document.getElementById('stat-storage-size').textContent = `~${(bytes / 1024).toFixed(1)} KB`;
+            }
+        }
+
+        async function exportDatabaseJSON() {
+            const sessions = await getAllFromStore("sessions");
+            const subjects = await getAllFromStore("subjects");
+
+            const backupData = {
+                app: "Chronos Study Tracker",
+                version: "1.0",
+                exported_at: new Date().toISOString(),
+                subjects: subjects,
+                sessions: sessions
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            const todayStr = formatDateISO(new Date());
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `chronos_backup_${todayStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+
+            showToast("Backup exported successfully!");
+        }
+
+        function handleImportFileSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    
+                    if (!imported || !Array.isArray(imported.sessions)) {
+                        showToast("Invalid backup file structure.", "error");
+                        return;
+                    }
+
+                    const shouldOverwrite = confirm(`Backup file contains ${imported.sessions.length} study sessions.\n\nClick OK to OVERWRITE existing data, or CANCEL to MERGE with current database.`);
+
+                    if (shouldOverwrite) {
+                        await clearStore("sessions");
+                        if (Array.isArray(imported.subjects)) await clearStore("subjects");
+                    }
+
+                    // Insert subjects
+                    if (Array.isArray(imported.subjects)) {
+                        for (const sub of imported.subjects) {
+                            try { await addToStore("subjects", sub); } catch(err) { /* ignore duplicate */ }
+                        }
+                    }
+
+                    // Insert sessions
+                    for (const sess of imported.sessions) {
+                        try { await addToStore("sessions", sess); } catch(err) {
+                            sess.id = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+                            await addToStore("sessions", sess);
+                        }
+                    }
+
+                    await loadSubjects();
+                    showToast(`Successfully imported ${imported.sessions.length} sessions!`);
+                    
+                    if (activeTab === 'settings') renderSettingsStats();
+                    if (activeTab === 'tracker') renderTrackerTodaySessions();
+
+                } catch (err) {
+                    console.error(err);
+                    showToast("Failed to parse JSON backup file.", "error");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        }
+
+        async function openClearDatabaseModal() {
+            const sessions = await getAllFromStore("sessions");
+            document.getElementById('confirm-delete-count').textContent = `${sessions.length} sessions`;
+            document.getElementById('clear-confirm-input').value = '';
+            document.getElementById('modal-clear-db').classList.remove('hidden');
+        }
+
+        function closeClearDatabaseModal() {
+            document.getElementById('modal-clear-db').classList.add('hidden');
+        }
+
+        async function confirmResetDatabase() {
+            const inputVal = document.getElementById('clear-confirm-input').value.trim();
+            if (inputVal !== 'RESET') {
+                showToast("Please type RESET to confirm.", "error");
+                return;
+            }
+
+            await clearStore("sessions");
+            await clearStore("subjects");
+
+            // Re-populate standard subject categories (empty session log)
+            const tx = db.transaction("subjects", "readwrite");
+            const store = tx.objectStore("subjects");
+            DEFAULT_SUBJECTS.forEach(sub => store.add(sub));
+            await new Promise(r => tx.oncomplete = r);
+
+            await loadSubjects();
+            closeClearDatabaseModal();
+            dismissSampleBanner();
+
+            showToast("Database reset to clean state.");
+            renderSettingsStats();
+            renderTrackerTodaySessions();
+        }
+
+        /* ==================== 10. EDIT & MANUAL MODALS ==================== */
+        async function deleteSession(id) {
+            if (confirm("Are you sure you want to delete this session entry?")) {
+                await deleteFromStore("sessions", id);
+                showToast("Session deleted.");
+                if (activeTab === 'tracker') renderTrackerTodaySessions();
+                if (activeTab === 'history') loadHistoryForSelectedDate();
+                if (activeTab === 'analytics') renderAnalytics();
+                if (activeTab === 'settings') renderSettingsStats();
+            }
+        }
+
+        async function openEditModal(id) {
+            const allSessions = await getAllFromStore("sessions");
+            const sess = allSessions.find(s => s.id === id);
+            if (!sess) return;
+
+            document.getElementById('edit-session-id').value = sess.id;
+            document.getElementById('edit-subject-select').value = sess.subject_id;
+            
+            const hours = Math.floor(sess.duration_seconds / 3600);
+            const mins = Math.floor((sess.duration_seconds % 3600) / 60);
+            
+            document.getElementById('edit-hours').value = hours;
+            document.getElementById('edit-minutes').value = mins;
+            document.getElementById('edit-notes').value = sess.notes || '';
+
+            document.getElementById('modal-edit-session').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('modal-edit-session').classList.add('hidden');
+        }
+
+        async function handleEditSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-session-id').value;
+            const allSessions = await getAllFromStore("sessions");
+            const sess = allSessions.find(s => s.id === id);
+            if (!sess) return;
+
+            const hrs = parseInt(document.getElementById('edit-hours').value) || 0;
+            const mins = parseInt(document.getElementById('edit-minutes').value) || 0;
+            const newTotalSecs = (hrs * 3600) + (mins * 60);
+
+            if (newTotalSecs <= 0) {
+                showToast("Duration must be greater than 0 minutes.", "error");
+                return;
+            }
+
+            sess.subject_id = document.getElementById('edit-subject-select').value;
+            sess.duration_seconds = newTotalSecs;
+            sess.notes = document.getElementById('edit-notes').value.trim();
+
+            await updateInStore("sessions", sess);
+            showToast("Session updated successfully.");
+            closeEditModal();
+
+            if (activeTab === 'tracker') renderTrackerTodaySessions();
+            if (activeTab === 'history') loadHistoryForSelectedDate();
+            if (activeTab === 'analytics') renderAnalytics();
+        }
+
+        function openManualEntryModal() {
+            document.getElementById('modal-manual-entry').classList.remove('hidden');
+        }
+
+        function closeManualEntryModal() {
+            document.getElementById('modal-manual-entry').classList.add('hidden');
+        }
+
+        async function handleManualEntrySubmit(e) {
+            e.preventDefault();
+            const dateStr = document.getElementById('manual-date').value;
+            const subjectId = document.getElementById('manual-subject-select').value;
+            const hrs = parseInt(document.getElementById('manual-hours').value) || 0;
+            const mins = parseInt(document.getElementById('manual-minutes').value) || 0;
+            const startTime = document.getElementById('manual-start-time').value;
+            const notes = document.getElementById('manual-notes').value.trim();
+
+            const totalSeconds = (hrs * 3600) + (mins * 60);
+            if (totalSeconds <= 0) {
+                showToast("Duration must be greater than 0.", "error");
+                return;
+            }
+
+            const sessionObj = {
+                id: 'sess_' + Date.now(),
+                date: dateStr,
+                start_time: startTime || '12:00',
+                duration_seconds: totalSeconds,
+                subject_id: subjectId,
+                notes: notes,
+                created_at: new Date(dateStr + 'T' + (startTime || '12:00') + ':00').toISOString()
+            };
+
+            await addToStore("sessions", sessionObj);
+            showToast("Manual session logged!");
+            closeManualEntryModal();
+
+            if (activeTab === 'tracker') renderTrackerTodaySessions();
+            if (activeTab === 'history') loadHistoryForSelectedDate();
+            if (activeTab === 'analytics') renderAnalytics();
+        }
+
+        function openAddSubjectModal() {
+            document.getElementById('modal-add-subject').classList.remove('hidden');
+        }
+
+        function closeAddSubjectModal() {
+            document.getElementById('modal-add-subject').classList.add('hidden');
+        }
+
+        async function handleAddSubjectSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-subject-name').value.trim();
+            const color = document.getElementById('new-subject-color').value;
+
+            if (!name) return;
+
+            const newSub = {
+                id: 'sub_' + Date.now(),
+                name: name,
+                color: color
+            };
+
+            await addToStore("subjects", newSub);
+            await loadSubjects();
+            showToast(`Subject "${name}" added!`);
+            closeAddSubjectModal();
+            document.getElementById('new-subject-name').value = '';
+        }
+
+        /* ==================== 11. ANALYTICS & VISUALIZATIONS ==================== */
+        async function renderAnalytics() {
+            const allSessions = await getAllFromStore("sessions");
+
+            computeMetrics(allSessions);
+            renderHeatmapGrid(allSessions);
+
+            renderDailyTrendChart(allSessions);
+            renderSubjectDonutChart(allSessions);
+            renderWeeklyTrendChart(allSessions);
+        }
+
+        function computeMetrics(sessions) {
+            if (sessions.length === 0) {
+                document.getElementById('metric-current-streak').textContent = '0';
+                document.getElementById('metric-longest-streak').textContent = 'Best: 0 Days';
+                document.getElementById('metric-daily-avg').textContent = '0.0';
+                document.getElementById('metric-total-hours').textContent = '0';
+                document.getElementById('metric-total-sessions').textContent = 'Across 0 sessions';
+                document.getElementById('metric-peak-window').textContent = 'N/A';
+                return;
+            }
+
+            let totalSecs = 0;
+            sessions.forEach(s => totalSecs += s.duration_seconds);
+            const totalHours = (totalSecs / 3600).toFixed(1);
+            document.getElementById('metric-total-hours').textContent = totalHours;
+            document.getElementById('metric-total-sessions').textContent = `Across ${sessions.length} sessions`;
+
+            const dailyMap = {};
+            sessions.forEach(s => {
+                dailyMap[s.date] = (dailyMap[s.date] || 0) + s.duration_seconds;
+            });
+
+            const sortedDates = Object.keys(dailyMap).sort();
+            let currentStreak = 0;
+            let longestStreak = 0;
+            let tempStreak = 0;
+
+            const today = new Date();
+            let checkDate = new Date(today);
+
+            let streakActive = true;
+            while (streakActive) {
+                const dateStr = formatDateISO(checkDate);
+                const daySecs = dailyMap[dateStr] || 0;
+                
+                if (daySecs >= 3600) {
+                    currentStreak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    if (dateStr === formatDateISO(today)) {
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    } else {
+                        streakActive = false;
+                    }
+                }
+            }
+
+            let prevDate = null;
+            sortedDates.forEach(dateStr => {
+                const daySecs = dailyMap[dateStr];
+                if (daySecs >= 3600) {
+                    if (prevDate) {
+                        const diffDays = Math.round((new Date(dateStr) - new Date(prevDate)) / (1000 * 60 * 60 * 24));
+                        if (diffDays === 1) {
+                            tempStreak++;
+                        } else {
+                            tempStreak = 1;
+                        }
+                    } else {
+                        tempStreak = 1;
+                    }
+                    prevDate = dateStr;
+                    if (tempStreak > longestStreak) longestStreak = tempStreak;
+                }
+            });
+
+            document.getElementById('metric-current-streak').textContent = currentStreak;
+            document.getElementById('metric-longest-streak').textContent = `Best: ${Math.max(currentStreak, longestStreak)} Days`;
+
+            const past30Days = [];
+            for (let i = 0; i < 30; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                past30Days.push(formatDateISO(d));
+            }
+            let past30TotalSecs = 0;
+            past30Days.forEach(d => past30TotalSecs += (dailyMap[d] || 0));
+            const dailyAvgHours = (past30TotalSecs / 3600 / 30).toFixed(1);
+            document.getElementById('metric-daily-avg').textContent = dailyAvgHours;
+
+            const windows = { Morning: 0, Afternoon: 0, Evening: 0, Night: 0 };
+            sessions.forEach(s => {
+                if (!s.start_time) return;
+                const hour = parseInt(s.start_time.split(':')[0]);
+                if (hour >= 5 && hour < 12) windows.Morning += s.duration_seconds;
+                else if (hour >= 12 && hour < 17) windows.Afternoon += s.duration_seconds;
+                else if (hour >= 17 && hour < 22) windows.Evening += s.duration_seconds;
+                else windows.Night += s.duration_seconds;
+            });
+
+            let peakWindow = 'Morning';
+            let maxWinSecs = 0;
+            Object.keys(windows).forEach(w => {
+                if (windows[w] > maxWinSecs) {
+                    maxWinSecs = windows[w];
+                    peakWindow = w;
+                }
+            });
+
+            document.getElementById('metric-peak-window').textContent = peakWindow;
+            document.getElementById('metric-peak-sub').textContent = `${(maxWinSecs/3600).toFixed(1)}h studied in ${peakWindow.toLowerCase()}s`;
+        }
+
+        /* Heatmap Navigation */
+        function navigateHeatmap(dir) {
+            heatmapOffsetBlocks += dir;
+            if (heatmapOffsetBlocks < 0) heatmapOffsetBlocks = 0;
+            getAllFromStore("sessions").then(renderHeatmapGrid);
+        }
+
+        function resetHeatmapToCurrent() {
+            heatmapOffsetBlocks = 0;
+            getAllFromStore("sessions").then(renderHeatmapGrid);
+        }
+
+        function renderHeatmapGrid(sessions) {
+            const container = document.getElementById('heatmap-grid');
+            container.innerHTML = '';
+
+            const dailyMap = {};
+            sessions.forEach(s => {
+                dailyMap[s.date] = (dailyMap[s.date] || 0) + s.duration_seconds;
+            });
+
+            const days = [];
+            const endOffsetDays = heatmapOffsetBlocks * 30;
+            const startOffsetDays = endOffsetDays + 29;
+
+            for (let i = startOffsetDays; i >= endOffsetDays; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                days.push(formatDateISO(d));
+            }
+
+            // Update Header/Title
+            const startDateLabel = new Date(days[0] + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            const endDateLabel = new Date(days[days.length - 1] + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            document.getElementById('heatmap-title').textContent = `${startDateLabel} - ${endDateLabel} Consistency Grid`;
+
+            const nextBtn = document.getElementById('btn-heatmap-next');
+            if (nextBtn) nextBtn.disabled = (heatmapOffsetBlocks === 0);
+
+            days.forEach(d => {
+                const secs = dailyMap[d] || 0;
+                const hours = (secs / 3600).toFixed(1);
+                
+                let bgClass = "bg-dark-hover border-dark-border";
+                if (secs > 0 && secs < 3600) bgClass = "bg-crimson-950 border-crimson-900";
+                else if (secs >= 3600 && secs < 10800) bgClass = "bg-crimson-800 border-crimson-700";
+                else if (secs >= 10800 && secs < 18000) bgClass = "bg-crimson-600 border-crimson-500 crimson-glow-sm";
+                else if (secs >= 18000) bgClass = "bg-crimson-500 border-crimson-400 crimson-glow";
+
+                const dateReadable = new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+                const cell = document.createElement('div');
+                cell.className = `heatmap-cell h-8 rounded-lg border flex flex-col items-center justify-center cursor-pointer transition relative ${bgClass}`;
+                cell.title = `${dateReadable}: ${hours} hrs studied`;
+
+                cell.innerHTML = `
+                    <span class="text-[9px] font-mono text-gray-300 font-bold">${new Date(d + 'T00:00:00').getDate()}</span>
+                `;
+
+                container.appendChild(cell);
+            });
+        }
+
+        /* Daily Trend Navigation & Full History */
+        function updateTrendDays(days) {
+            trendDaysCount = days;
+            trendOffsetPeriods = 0; // Reset pagination offset on scale change
+            
+            ['7', '14', '30', 'all'].forEach(id => {
+                const btn = document.getElementById(`btn-trend-${id}`);
+                if (btn) {
+                    if (id == days) {
+                        btn.className = "px-2.5 py-1 rounded-md bg-crimson-700 text-white font-semibold";
+                    } else {
+                        btn.className = "px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white";
+                    }
+                }
+            });
+
+            getAllFromStore("sessions").then(renderDailyTrendChart);
+        }
+
+        function navigateTrendOffset(dir) {
+            if (trendDaysCount === 'all') return;
+            trendOffsetPeriods += dir;
+            if (trendOffsetPeriods < 0) trendOffsetPeriods = 0;
+            getAllFromStore("sessions").then(renderDailyTrendChart);
+        }
+
+        function resetTrendOffset() {
+            trendOffsetPeriods = 0;
+            getAllFromStore("sessions").then(renderDailyTrendChart);
+        }
+
+        function renderDailyTrendChart(sessions) {
+            const ctx = document.getElementById('chart-daily-trend').getContext('2d');
+            
+            const labels = [];
+            const dataValues = [];
+            
+            const dailyMap = {};
+            sessions.forEach(s => {
+                dailyMap[s.date] = (dailyMap[s.date] || 0) + s.duration_seconds;
+            });
+
+            const nextBtn = document.getElementById('btn-trend-next');
+            if (nextBtn) nextBtn.disabled = (trendOffsetPeriods === 0 || trendDaysCount === 'all');
+
+            if (trendDaysCount === 'all') {
+                const dates = Object.keys(dailyMap).sort();
+                if (dates.length > 0) {
+                    const firstDate = new Date(dates[0] + 'T00:00:00');
+                    const today = new Date();
+                    const totalDays = Math.ceil((today - firstDate) / (1000 * 60 * 60 * 24)) + 1;
+                    
+                    for (let i = totalDays - 1; i >= 0; i--) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - i);
+                        const dateStr = formatDateISO(d);
+                        labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                        dataValues.push(((dailyMap[dateStr] || 0) / 3600).toFixed(2));
+                    }
+                } else {
+                    labels.push(new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                    dataValues.push('0.00');
+                }
+            } else {
+                const daysNum = parseInt(trendDaysCount);
+                const endOffsetDays = trendOffsetPeriods * daysNum;
+                const startOffsetDays = endOffsetDays + daysNum - 1;
+
+                for (let i = startOffsetDays; i >= endOffsetDays; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const dateStr = formatDateISO(d);
+                    
+                    labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                    dataValues.push(((dailyMap[dateStr] || 0) / 3600).toFixed(2));
+                }
+            }
+
+            if (chartDailyTrend) chartDailyTrend.destroy();
+
+            chartDailyTrend = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Hours Studied',
+                        data: dataValues,
+                        backgroundColor: '#dc143c',
+                        hoverBackgroundColor: '#ff1e42',
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.raw} Hours`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#24242c' },
+                            ticks: { color: '#8e8ea0', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: '#24242c' },
+                            ticks: { color: '#8e8ea0', font: { size: 10 } },
+                            title: { display: true, text: 'Hours', color: '#8e8ea0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderSubjectDonutChart(sessions) {
+            const ctx = document.getElementById('chart-subject-donut').getContext('2d');
+            
+            const subjectTimeMap = {};
+            sessions.forEach(s => {
+                subjectTimeMap[s.subject_id] = (subjectTimeMap[s.subject_id] || 0) + s.duration_seconds;
+            });
+
+            const labels = [];
+            const dataValues = [];
+            const backgroundColors = [];
+
+            subjectsList.forEach(sub => {
+                const secs = subjectTimeMap[sub.id] || 0;
+                if (secs > 0) {
+                    labels.push(sub.name);
+                    dataValues.push((secs / 3600).toFixed(2));
+                    backgroundColors.push(sub.color);
+                }
+            });
+
+            if (chartSubjectDonut) chartSubjectDonut.destroy();
+
+            chartSubjectDonut = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: backgroundColors,
+                        borderWidth: 2,
+                        borderColor: '#16161a'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#f3f4f6', font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.label}: ${ctx.raw} Hours`
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        /* Weekly Comparison Control & Chart */
+        function updateWeeklySpan(weeks) {
+            weeklySpanWeeks = weeks;
+            [4, 8, 12, 26, 52].forEach(w => {
+                const btn = document.getElementById(`btn-weekly-${w}`);
+                if (btn) {
+                    if (w === weeks) {
+                        btn.className = "px-2.5 py-1 rounded-md bg-crimson-700 text-white font-semibold";
+                    } else {
+                        btn.className = "px-2.5 py-1 rounded-md text-gray-400 font-semibold hover:text-white";
+                    }
+                }
+            });
+            getAllFromStore("sessions").then(renderWeeklyTrendChart);
+        }
+
+        function renderWeeklyTrendChart(sessions) {
+            const ctx = document.getElementById('chart-weekly-trend').getContext('2d');
+
+            const weekLabels = [];
+            const weekTotals = [];
+            
+            for (let i = weeklySpanWeeks - 1; i >= 0; i--) {
+                if (i === 0) weekLabels.push('This Week');
+                else if (i === 1) weekLabels.push('Last Week');
+                else weekLabels.push(`${i} Wks Ago`);
+                weekTotals.push(0);
+            }
+
+            const today = new Date();
+
+            sessions.forEach(s => {
+                const sessDate = new Date(s.date + 'T00:00:00');
+                const diffDays = Math.floor((today - sessDate) / (1000 * 60 * 60 * 24));
+                const weekIdx = Math.floor(diffDays / 7);
+
+                if (weekIdx >= 0 && weekIdx < weeklySpanWeeks) {
+                    const targetIndex = (weeklySpanWeeks - 1) - weekIdx;
+                    weekTotals[targetIndex] += s.duration_seconds;
+                }
+            });
+
+            const dataHours = weekTotals.map(sec => (sec / 3600).toFixed(1));
+
+            if (chartWeeklyTrend) chartWeeklyTrend.destroy();
+
+            chartWeeklyTrend = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: weekLabels,
+                    datasets: [{
+                        label: 'Total Weekly Hours',
+                        data: dataHours,
+                        backgroundColor: '#dc143c',
+                        hoverBackgroundColor: '#ff1e42',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.raw} Total Hours`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#8e8ea0', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: '#24242c' },
+                            ticks: { color: '#8e8ea0' },
+                            title: { display: true, text: 'Hours', color: '#8e8ea0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        /* ==================== 12. HELPER UTILITIES ==================== */
+        function formatDateISO(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDurationHoursMins(totalSeconds) {
+            const hrs = Math.floor(totalSeconds / 3600);
+            const mins = Math.floor((totalSeconds % 3600) / 60);
+            return `${hrs}h ${mins}m`;
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-crimson-900 border-crimson-600 text-white' : 'bg-amber-900 border-amber-600 text-white';
+            const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+
+            toast.className = `pointer-events-auto flex items-center space-x-2 px-4 py-3 rounded-xl border shadow-xl ${bgColor} transition-all duration-300 transform translate-y-2 opacity-0 text-sm font-medium`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-4 h-4 shrink-0"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
