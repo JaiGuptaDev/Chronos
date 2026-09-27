@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "dev.workers.jaigupta_main.chronos.twa",
-        "sha256_cert_fingerprints": ["0D:85:25:08:F0:8A:A6:7E:88:C7:83:BC:E5:F8:FD:B6:DB:02:98:A3:C6:65:F8:53:FA:F6:90:5E:A4:BA:0D:9E"]
+        "sha256_cert_fingerprints": ["F7:C8:89:B1:91:5B:CB:32:11:CB:C4:00:42:02:D1:07:9C:56:A7:E7:80:0F:C2:3F:62:BC:BC:4F:6C:DB:27:A2"]
       }
     }]
